@@ -1,5 +1,12 @@
-FROM mysql:8.0
+FROM python:3.11-slim
 
-COPY ./mysql.sql /tmp
+WORKDIR /app
 
-CMD [ "mysqld", "--init-file=/tmp/mysql.sql" ]
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 81
+
+CMD ["python", "app.py"]

@@ -3,9 +3,43 @@ from pymysql import connections
 import os
 import random
 import argparse
+import boto3
+import logging
+import shutil
+
+
+APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(APP_ROOT, "static")
+LOCAL_BG_PATH = os.path.join("/tmp", "background.jpg")
+STATIC_BG_PATH = os.path.join(STATIC_DIR, "background.jpg")
+
+os.makedirs(STATIC_DIR, exist_ok=True)
+
+
+BG_BUCKET = os.getenv("BG_BUCKET_NAME")
+BG_KEY = os.getenv("BG_OBJECT_KEY")
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.info(f"Background image: s3://{BG_BUCKET}/{BG_KEY}")
+
+def download_bg_if_needed():
+    if not BG_BUCKET or not BG_KEY:
+        logger.warning("Background bucket or key not set")
+        return
+
+    s3 = boto3.client("s3")
+    logger.info(f"Downloading background image from S3...")
+    s3.download_file(BG_BUCKET, BG_KEY, LOCAL_BG_PATH)
+    shutil.copyfile(LOCAL_BG_PATH, STATIC_BG_PATH)
+
+
+NAME_HEADER = os.getenv("NAME_HEADER", "CLO835 Student")
 
 
 app = Flask(__name__)
+
+download_bg_if_needed()
 
 DBHOST = os.environ.get("DBHOST") or "localhost"
 DBUSER = os.environ.get("DBUSER") or "root"
@@ -47,11 +81,11 @@ COLOR = random.choice(["red", "green", "blue", "blue2", "darkblue", "pink", "lim
 
 @app.route("/", methods=['GET', 'POST'])
 def home():
-    return render_template('addemp.html', color=color_codes[COLOR])
+    return render_template('addemp.html', color=color_codes[COLOR], name_header=NAME_HEADER)
 
 @app.route("/about", methods=['GET','POST'])
 def about():
-    return render_template('about.html', color=color_codes[COLOR])
+    return render_template('about.html', color=color_codes[COLOR], name_header=NAME_HEADER)
     
 @app.route("/addemp", methods=['POST'])
 def AddEmp():
@@ -133,4 +167,5 @@ if __name__ == '__main__':
         print("Color not supported. Received '" + COLOR + "' expected one of " + SUPPORTED_COLORS)
         exit(1)
 
-    app.run(host='0.0.0.0',port=8080,debug=True)
+    app.run(host="0.0.0.0", port=81)
+
